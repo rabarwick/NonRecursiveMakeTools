@@ -1,0 +1,86 @@
+#
+# In his paper "Recursive Make Considered Harmful" Peter Miller highlights
+# some of the problems caused by invoking Make from within makefiles.
+# Peter's solution used a single whole project make with a flattened
+# object file-hierarchy in Make's generated DAG.
+#
+# Emile van Bergen improved on Peter Miller's solution by splitting the
+# Makefile rules into self contained fragments at a modular level,
+# preserving the hierarchy using a simulated directory stack.
+# This enabled multi module developments to progress independently.
+# Emile's solution placed directory stack simulation code at the
+# top and bottom of each makefile fragment.
+#
+# This work builds on the efforts of the above specialists.
+#
+# This modified version of Emile van Bergen's Non-Recursive Make System
+# uses macros to replace the repeated header and footer stack
+# handling code in each of the makefile fragments (Rules.mk) so that
+# only a single line makefile directive is needed to include a
+# sub-hierarchy's makefile fragment.
+#
+# In Emile's solution's Rules.mk instead of
+#
+#    dir := $(d)/test
+#    include $(dir)/Rules.mk
+#
+# use nrmk_include as follows:
+#
+#    $(call nrmk_include,test,Rules.mk)
+#
+# The defaults for the arguments are
+#    1> The current directory
+# and
+#    2> Rules.mk
+#
+# The Makefile (the only one, at the top level) should include this file
+#
+#    include Makefile.maketools
+#
+# then somewhere to start the hierarchical include it could have the line
+#
+#    $(call nrmk_include)
+#
+# which (using defaults) includes Rules.mk from the current directory.
+# The makekfile fragments (Rules.mk) can refer to the current directory
+# using $(nrmk_dir)
+#
+#
+# Internals:
+# EvB's dir is replaced with an argument to the macro.
+# nrmk_stack_  is EvB's dirstack_ and is private
+# nrmk_sp      is EvB's sp        and is private
+# nrmk_dir     is EvB's d         to be used in Rules.mk
+
+define nrmk_internal
+  nrmk_sp:=$$(nrmk_sp).x
+  nrmk_stack_$$(nrmk_sp):=$$(nrmk_dir)
+  ifneq ($$(nrmk_dir),)
+    ifneq ($$(1),)
+      nrmk_dir:=$$(nrmk_dir)/$$(1)
+    endif
+  else
+    nrmk_dir:=$$(1)
+  endif
+  ifneq ($$(nrmk_dir),)
+    ifeq ($$(2),)
+      include $$(nrmk_dir)/Rules.mk
+    else
+      include $$(nrmk_dir)/$$(2)
+    endif
+  else
+    ifeq ($$(2),)
+      include Rules.mk
+    else
+      include $$(2)
+    endif
+  endif
+  nrmk_dir:=$$(nrmk_stack_$$(nrmk_sp))
+  nrmk_sp:=$$(basename $$(nrmk_sp))
+endef
+
+# The following wrapper simplifies the user's call site.
+
+define nrmk_include
+  $(eval $(call nrmk_internal,$(1),$(2)))
+endef
