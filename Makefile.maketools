@@ -52,6 +52,9 @@
 # nrmk_sp      is EvB's sp        and is private
 # nrmk_dir     is EvB's d         to be used in Rules.mk
 
+# The following wrapper simplifies the user's call site.
+nrmk_include = $(eval $(call nrmk_internal,$(1),$(2)))
+
 define nrmk_internal
   nrmk_sp:=$$(nrmk_sp).x
   nrmk_stack_$$(nrmk_sp):=$$(nrmk_dir)
@@ -79,8 +82,11 @@ define nrmk_internal
   nrmk_sp:=$$(basename $$(nrmk_sp))
 endef
 
-# The following wrapper simplifies the user's call site.
+# The current makefile fragment is the file just included.
+# Provided no nrmk_include or include appear above usage of nrmk_fragment
+# this will be the filename of the current makefile fragment.
+#
+# If you have a makefile fragment which does stuff and includes a
+# lower makefile fragment, you should include the lower fragment at the end.
 
-define nrmk_include
-  $(eval $(call nrmk_internal,$(1),$(2)))
-endef
+nrmk_fragment = $(lastword $(MAKEFILE_LIST))
